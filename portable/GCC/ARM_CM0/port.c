@@ -291,8 +291,9 @@ void vPortExitCritical( void ) PRIVILEGED_FUNCTION;
 
 /**
  * @brief SysTick handler.
+ * Made static to avoid conflict with Arduino SysTick_Handler
  */
-void SysTick_Handler( void ) PRIVILEGED_FUNCTION;
+static void SysTick_Handler( void ) PRIVILEGED_FUNCTION;
 
 /**
  * @brief C part of SVC handler.
@@ -386,6 +387,20 @@ PRIVILEGED_DATA static volatile uint32_t ulCriticalNesting = 0xaaaaaaaaUL;
     PRIVILEGED_DATA static uint32_t ulStoppedTimerCompensation = 0;
 
 #endif /* configUSE_TICKLESS_IDLE */
+
+void (* xPortSysTickHandler)(void) = NULL;
+
+/**
+* @brief sysTickHook implementation as desired by Arduino API.
+*/
+int sysTickHook(void)
+{
+    if(xPortSysTickHandler)
+    {
+        xPortSysTickHandler();
+    }
+    return 0; // Return false to continue Arduino SysTick Handler
+}
 
 /*-----------------------------------------------------------*/
 
@@ -1264,6 +1279,8 @@ void vPortSVCHandler_C( uint32_t * pulCallerStackAddress ) /* PRIVILEGED_FUNCTIO
 
 BaseType_t xPortStartScheduler( void ) /* PRIVILEGED_FUNCTION */
 {
+    xPortSysTickHandler = &SysTick_Handler;
+
     /* An application can install FreeRTOS interrupt handlers in one of the
      * following ways:
      * 1. Direct Routing - Install the functions SVC_Handler and PendSV_Handler
