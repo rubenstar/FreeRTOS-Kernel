@@ -33,10 +33,17 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
-#ifdef __GNUC__
-    #include "mmsystem.h"
+#ifdef WIN32_LEAN_AND_MEAN
+    #include <winsock2.h>
 #else
+    #include <winsock.h>
+#endif
+
+#ifdef _MSC_VER
+    #include <timeapi.h>
     #pragma comment(lib, "winmm.lib")
+#else
+    #include <mmsystem.h>
 #endif
 
 #define portMAX_INTERRUPTS                          ( ( uint32_t ) sizeof( uint32_t ) * 8UL ) /* The number of bits in an uint32_t. */
@@ -141,6 +148,10 @@ static DWORD WINAPI prvSimulatedPeripheralTimer( LPVOID lpParameter )
 {
     TickType_t xMinimumWindowsBlockTime;
     TIMECAPS xTimeCaps;
+    TickType_t xWaitTimeBetweenTicks = portTICK_PERIOD_MS;
+    HANDLE hTimer = NULL;
+    LARGE_INTEGER liDueTime;
+    BOOL bSuccess;
 
     /* Set the timer resolution to the maximum possible. */
     if( timeGetDevCaps( &xTimeCaps, sizeof( xTimeCaps ) ) == MMSYSERR_NOERROR )
@@ -160,22 +171,34 @@ static DWORD WINAPI prvSimulatedPeripheralTimer( LPVOID lpParameter )
     /* Just to prevent compiler warnings. */
     ( void ) lpParameter;
 
+    /* Tick time for the timer is adjusted with the maximum available
+     resolution. */
+    if( portTICK_PERIOD_MS < xMinimumWindowsBlockTime )
+    {
+        xWaitTimeBetweenTicks = xMinimumWindowsBlockTime;
+    }
+
+    /* Convert the tick time in milliseconds to nanoseconds resolution
+     for the Waitable Timer. */
+    liDueTime.u.LowPart = xWaitTimeBetweenTicks * 1000 * 1000;
+    liDueTime.u.HighPart = 0;
+
+    /* Create a synchronization Waitable Timer.*/
+    hTimer = CreateWaitableTimer( NULL, FALSE, NULL );
+
+    configASSERT( hTimer != NULL );
+
+    /* Set the Waitable Timer. The timer is set to run periodically at every
+    xWaitTimeBetweenTicks milliseconds. */
+    bSuccess = SetWaitableTimer( hTimer, &liDueTime, xWaitTimeBetweenTicks, NULL, NULL, 0 );
+    configASSERT( bSuccess );
+
     while( xPortRunning == pdTRUE )
     {
         /* Wait until the timer expires and we can access the simulated interrupt
-         * variables.  *NOTE* this is not a 'real time' way of generating tick
-         * events as the next wake time should be relative to the previous wake
-         * time, not the time that Sleep() is called.  It is done this way to
-         * prevent overruns in this very non real time simulated/emulated
-         * environment. */
-        if( portTICK_PERIOD_MS < xMinimumWindowsBlockTime )
-        {
-            Sleep( xMinimumWindowsBlockTime );
-        }
-        else
-        {
-            Sleep( portTICK_PERIOD_MS );
-        }
+         * variables. */
+
+        WaitForSingleObject( hTimer, INFINITE );
 
         vPortGenerateSimulatedInterruptFromWindowsThread( portINTERRUPT_TICK );
     }

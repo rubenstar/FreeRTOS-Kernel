@@ -23,11 +23,13 @@ AIRCR
 ALMIEN
 ALMV
 ANDC
+andi
 ANDCCR
 APIC
 APROCFREQ
 APSR
 ARMCM
+ARMEB
 Armv
 ARMVFP
 ASTRINGZ
@@ -47,6 +49,7 @@ bcpc
 BCPC
 beevt
 BEEVT
+beqz
 BERR
 bfextu
 Biagioni
@@ -67,6 +70,7 @@ CANTX
 capitalisation
 cbmc
 CBMC
+cbnz
 cbor
 CBOR
 CCIE
@@ -105,7 +109,10 @@ CLKS
 CLKSOURCE
 CLKSTA
 CLRB
+clrex
+CLREX
 CLRF
+clrm
 CLRPSW
 CMCNT
 CMCON
@@ -297,6 +304,7 @@ FADD
 FCMD
 fcolor
 FCSE
+fcsr
 fdiagnostics
 fdiv
 FDIV
@@ -374,6 +382,7 @@ IFSR
 imajeff
 INACK
 INDF
+initialisations
 inpw
 INTE
 INTFRCH
@@ -426,6 +435,7 @@ ldrbs
 LDRBS
 LDRNE
 ldsr
+ldxr
 lidt
 LINKR
 LJMP
@@ -501,6 +511,7 @@ movs
 movw
 MOVWF
 movx
+MPIDR
 MPLAB
 MPUCTRL
 MQTT
@@ -645,6 +656,8 @@ PPUDR
 PPUER
 PPUSR
 ppux
+Prbar
+PRBAR
 PRCR
 PREA
 PREB
@@ -652,11 +665,15 @@ PRIA
 Prioritised
 PRIS
 PRIVDEFENA
+Prlar
+PRLAR
 PROCDLY
 PRODH
 PRODL
 PROGE
 Prokic
+Prselr
+PRSELR
 prtmacro
 psha
 psplim
@@ -678,6 +695,7 @@ pylint
 pytest
 pyyaml
 RAMPZ
+randomisation
 RASR
 Rationalised
 Raynald
@@ -698,6 +716,7 @@ REENT
 REGA
 RELD
 Renesas
+restoreallgpregisters
 reta
 reti
 RETP
@@ -765,6 +784,8 @@ SCBR
 SCDR
 SCER
 SCSR
+Sctlr
+SCTLR
 SDCC
 SECU
 SENDA
@@ -774,6 +795,7 @@ SETINTENA
 SETPSW
 SETR
 setvect
+sevl
 SFRC
 SHLL
 SHLR
@@ -781,6 +803,7 @@ SHPR
 SHTIM
 SIFIVE
 sinclude
+slli
 SODR
 SOFTIRQ
 SPCK
@@ -803,6 +826,7 @@ STTBRK
 STTDLY
 STTOUT
 STTTO
+stxr
 SVACC
 svcne
 SVDIS
@@ -919,6 +943,7 @@ UNSUB
 UNSUBACK
 unsubscriptions
 unsuspended
+unupdated
 UPAC
 URAD
 URAT
@@ -932,6 +957,7 @@ USRIO
 utest
 utilises
 utilising
+vcsr
 VDDCORE
 vect
 Vect
@@ -942,6 +968,7 @@ visualisation
 vldmdbeq
 vldmia
 vldmiaeq
+vlenb
 VMSRNE
 vpop
 VPOPNE
@@ -949,6 +976,7 @@ vpush
 VPUSHNE
 VRPM
 Vrtc
+vsetvl
 vstmdbeq
 vstmiaeq
 VTOR

@@ -114,6 +114,13 @@ KERNEL_ARM_COLLAB_FILES_PATTERNS = [
     r'.*portable/.*/ARM_CM35*',
     r'.*portable/.*/ARM_CM55*',
     r'.*portable/.*/ARM_CM85*',
+    r'.*portable/.*/ARM_CM0*',
+    r'.*portable/.*/ARM_CM3_MPU*',
+    r'.*portable/.*/ARM_CM4_MPU*',
+    r'.*portable/.*/ARM_CM4F_MPU*',
+    r'.*portable/.*/ARM_CR82*',
+    r'.*include/task\.h$',
+    r'.*tasks\.c$',
 ]
 
 KERNEL_HEADER = [
@@ -150,8 +157,9 @@ KERNEL_HEADER = [
 FREERTOS_COPYRIGHT_REGEX = r"^(;|#)?( *(\/\*|\*|#|\/\/))? Copyright \(C\) 20\d\d Amazon.com, Inc. or its affiliates. All Rights Reserved\.( \*\/)?$"
 
 FREERTOS_ARM_COLLAB_COPYRIGHT_REGEX = r"(^(;|#)?( *(\/\*|\*|#|\/\/))? Copyright \(C\) 20\d\d Amazon.com, Inc. or its affiliates. All Rights Reserved\.( \*\/)?$)|" + \
-                                      r"(^(;|#)?( *(\/\*|\*|#|\/\/))? Copyright 20\d\d Arm Limited and/or its affiliates( \*\/)?$)|" + \
-                                      r"(^(;|#)?( *(\/\*|\*|#|\/\/))? <open-source-office@arm.com>( \*\/)?$)"
+                                      r"(^(;|#)?( *(\/\*|\*|#|\/\/))? Copyright 20\d\d(-20\d\d)? Arm Limited and/or its affiliates( +<open-source-office@arm\.com>)?( \*\/)?$)|" + \
+                                      r"(^(;|#)?( *(\/\*|\*|#|\/\/))? Copyright \(c\) 20\d\d(-20\d\d)? Arm Technology \(China\) Co., Ltd.All Rights Reserved\.( \*\/)?$)|" + \
+                                      r"(^(;|#)?( *(\/\*|\*|#|\/\/))? <open-source-office@arm\.com>( \*\/)?$)"
 
 
 class KernelHeaderChecker(HeaderChecker):
@@ -193,6 +201,8 @@ class KernelHeaderChecker(HeaderChecker):
             ]
             if (len(lines) > 0) and (lines[0].find("#!") == 0):
                 lines.remove(lines[0])
+            if (len(lines) > 0) and (len(lines[-1].strip()) == 0):
+                lines.remove(lines[-1])
 
         # Split lines in sections.
         headers = dict()
@@ -210,8 +220,10 @@ class KernelHeaderChecker(HeaderChecker):
         text_equal = self.isValidHeaderSection(file_ext, "text", headers["text"])
         spdx_equal = self.isValidHeaderSection(file_ext, "spdx", headers["spdx"])
 
-        if text_equal and spdx_equal and len(headers["copyright"]) == 3:
-            isValid = True
+        if text_equal and spdx_equal:
+            # Some files do not have "open-source-office@arm.com" line.
+            if len(headers["copyright"]) == 3 or len(headers["copyright"]) == 2:
+                isValid = True
 
         return isValid
 

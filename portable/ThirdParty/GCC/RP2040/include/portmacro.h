@@ -38,6 +38,7 @@
 
 #include "pico.h"
 #include "hardware/sync.h"
+#include "rp2040_config.h"
 
 /*-----------------------------------------------------------
  * Port specific definitions.
@@ -149,6 +150,10 @@ extern void vPortYield( void );
         __asm volatile ( "mrs %0, IPSR" : "=r" ( ulIPSR )::); \
         ( ( uint8_t ) ulIPSR ) > 0; } )
 
+/* Use #define rather than inline method to make it easier for user code
+ * to work with kernel versions both with and without xPortIsInsideInterrupt */
+#define xPortIsInsideInterrupt() ((BaseType_t)portCHECK_IF_IN_ISR())
+
 void vYieldCore( int xCoreID );
 #define portYIELD_CORE( a )                  vYieldCore( a )
 
@@ -158,10 +163,10 @@ void vYieldCore( int xCoreID );
 #define portCRITICAL_NESTING_IN_TCB    0
 
 extern UBaseType_t uxCriticalNestings[ configNUMBER_OF_CORES ];
-#define portGET_CRITICAL_NESTING_COUNT()          ( uxCriticalNestings[ portGET_CORE_ID() ] )
-#define portSET_CRITICAL_NESTING_COUNT( x )       ( uxCriticalNestings[ portGET_CORE_ID() ] = ( x ) )
-#define portINCREMENT_CRITICAL_NESTING_COUNT()    ( uxCriticalNestings[ portGET_CORE_ID() ]++ )
-#define portDECREMENT_CRITICAL_NESTING_COUNT()    ( uxCriticalNestings[ portGET_CORE_ID() ]-- )
+#define portGET_CRITICAL_NESTING_COUNT( xCoreID )          ( uxCriticalNestings[ ( xCoreID ) ] )
+#define portSET_CRITICAL_NESTING_COUNT( xCoreID, x )       ( uxCriticalNestings[ ( xCoreID ) ] = ( x ) )
+#define portINCREMENT_CRITICAL_NESTING_COUNT( xCoreID )    ( uxCriticalNestings[ ( xCoreID ) ]++ )
+#define portDECREMENT_CRITICAL_NESTING_COUNT( xCoreID )    ( uxCriticalNestings[ ( xCoreID ) ]-- )
 
 /*-----------------------------------------------------------*/
 
@@ -210,8 +215,9 @@ __force_inline static bool spin_try_lock_unsafe(spin_lock_t *lock) {
 
 /* Note this is a single method with uxAcquire parameter since we have
  * static vars, the method is always called with a compile time constant for
- * uxAcquire, and the compiler should dothe right thing! */
-static inline void vPortRecursiveLock( uint32_t ulLockNum,
+ * uxAcquire, and the compiler should do the right thing! */
+static inline void vPortRecursiveLock( BaseType_t xCoreID,
+                                       uint32_t ulLockNum,
                                        spin_lock_t * pxSpinLock,
                                        BaseType_t uxAcquire )
 {
@@ -219,46 +225,46 @@ static inline void vPortRecursiveLock( uint32_t ulLockNum,
     static volatile uint8_t ucRecursionCountByLock[ portRTOS_SPINLOCK_COUNT ];
 
     configASSERT( ulLockNum < portRTOS_SPINLOCK_COUNT );
-    uint32_t ulCoreNum = get_core_num();
 
     if( uxAcquire )
     {
         if (!spin_try_lock_unsafe(pxSpinLock)) {
-            if( ucOwnedByCore[ ulCoreNum ][ ulLockNum ] )
+            if( ucOwnedByCore[ xCoreID ][ ulLockNum ] )
             {
                 configASSERT( ucRecursionCountByLock[ ulLockNum ] != 255u );
-                ucRecursionCountByLock[ ulLockNum ]++;
+                ucRecursionCountByLock[ ulLockNum ] = ucRecursionCountByLock[ ulLockNum ] + 1;
                 return;
             }
             spin_lock_unsafe_blocking(pxSpinLock);
         }
         configASSERT( ucRecursionCountByLock[ ulLockNum ] == 0 );
         ucRecursionCountByLock[ ulLockNum ] = 1;
-        ucOwnedByCore[ ulCoreNum ][ ulLockNum ] = 1;
+        ucOwnedByCore[ xCoreID ][ ulLockNum ] = 1;
     }
     else
     {
-        configASSERT( ( ucOwnedByCore[ ulCoreNum ] [ulLockNum ] ) != 0 );
+        configASSERT( ( ucOwnedByCore[ xCoreID ] [ulLockNum ] ) != 0 );
         configASSERT( ucRecursionCountByLock[ ulLockNum ] != 0 );
 
-        if( !--ucRecursionCountByLock[ ulLockNum ] )
+        ucRecursionCountByLock[ ulLockNum ] = ucRecursionCountByLock[ ulLockNum ] - 1;
+        if ( ucRecursionCountByLock[ ulLockNum ] == 0U )
         {
-            ucOwnedByCore[ ulCoreNum ] [ ulLockNum ] = 0;
+            ucOwnedByCore[ xCoreID ] [ ulLockNum ] = 0;
             spin_unlock_unsafe(pxSpinLock);
         }
     }
 }
 
 #if ( configNUMBER_OF_CORES == 1 )
-    #define portGET_ISR_LOCK()
-    #define portRELEASE_ISR_LOCK()
-    #define portGET_TASK_LOCK()
-    #define portRELEASE_TASK_LOCK()
+    #define portGET_ISR_LOCK( xCoreID )
+    #define portRELEASE_ISR_LOCK( xCoreID )
+    #define portGET_TASK_LOCK( xCoreID )
+    #define portRELEASE_TASK_LOCK( xCoreID )
 #else
-    #define portGET_ISR_LOCK()         vPortRecursiveLock( 0, spin_lock_instance( configSMP_SPINLOCK_0 ), pdTRUE )
-    #define portRELEASE_ISR_LOCK()     vPortRecursiveLock( 0, spin_lock_instance( configSMP_SPINLOCK_0 ), pdFALSE )
-    #define portGET_TASK_LOCK()        vPortRecursiveLock( 1, spin_lock_instance( configSMP_SPINLOCK_1 ), pdTRUE )
-    #define portRELEASE_TASK_LOCK()    vPortRecursiveLock( 1, spin_lock_instance( configSMP_SPINLOCK_1 ), pdFALSE )
+    #define portGET_ISR_LOCK( xCoreID )         vPortRecursiveLock( ( xCoreID ), 0, spin_lock_instance( configSMP_SPINLOCK_0 ), pdTRUE )
+    #define portRELEASE_ISR_LOCK( xCoreID )     vPortRecursiveLock( ( xCoreID ), 0, spin_lock_instance( configSMP_SPINLOCK_0 ), pdFALSE )
+    #define portGET_TASK_LOCK( xCoreID )        vPortRecursiveLock( ( xCoreID ), 1, spin_lock_instance( configSMP_SPINLOCK_1 ), pdTRUE )
+    #define portRELEASE_TASK_LOCK( xCoreID )    vPortRecursiveLock( ( xCoreID ), 1, spin_lock_instance( configSMP_SPINLOCK_1 ), pdFALSE )
 #endif
 
 /*-----------------------------------------------------------*/
