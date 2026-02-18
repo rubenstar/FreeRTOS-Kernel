@@ -282,8 +282,7 @@ static void prvPortStartFirstTask( void )
      * would otherwise result in the unnecessary leaving of space in the SVC stack
      * for lazy saving of FPU registers. */
     __asm volatile (
-        " ldr r0, =0xE000ED08   \n" /* Use the NVIC offset register to locate the stack. */
-        " ldr r0, [r0]          \n"
+        " ldr r0, =__isr_vector \n" /* Locate the stack using __isr_vector table. */
         " ldr r0, [r0]          \n"
         " msr msp, r0           \n" /* Set the msp back to the start of the stack. */
         " mov r0, #0            \n" /* Clear the bit that indicates the FPU is in use, see comment above. */
@@ -292,9 +291,17 @@ static void prvPortStartFirstTask( void )
         " cpsie f               \n"
         " dsb                   \n"
         " isb                   \n"
+#ifdef SOFTDEVICE_PRESENT
+        /* Block kernel interrupts only (PendSV) before calling SVC */
+        " mov r0, %0            \n"
+        " msr basepri, r0       \n"
+#endif
         " svc 0                 \n" /* System call to start first task. */
         " nop                   \n"
         " .ltorg                \n"
+#ifdef SOFTDEVICE_PRESENT
+        ::"i" ( configMAX_SYSCALL_INTERRUPT_PRIORITY )
+#endif
         );
 }
 /*-----------------------------------------------------------*/
